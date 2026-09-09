@@ -10,6 +10,7 @@ Aplicación en español para registrar los resultados de los 240 partidos de Lig
 - Rendimiento respecto a puntos esperados, rachas, porterías a cero y puntos por partido en casa y fuera.
 - Dificultad y puntos esperados de los próximos rivales; escenarios de victoria, empate y derrota.
 - Históricos y parámetros editables, exportación/importación de la temporada y restauración con confirmación.
+- Persistencia compartida gratuita en Google Sheets para la edición de GitHub Pages, con PIN para guardar y enlace de consulta para el staff.
 
 ## Publicar en GitHub Pages
 
@@ -18,15 +19,15 @@ Aplicación en español para registrar los resultados de los 240 partidos de Lig
 3. Ejecuta el flujo **Publicar dashboard en GitHub Pages** desde **Actions**, o sube un cambio a `main`.
 4. Abre el enlace que aparece al terminar el trabajo `deploy`.
 
-La aplicación utiliza rutas relativas: funciona tanto en `usuario.github.io` como bajo `usuario.github.io/repositorio/`. No requiere claves API, cuenta de IA, servicios de pago ni llamadas externas para calcular.
+La aplicación utiliza rutas relativas: funciona tanto en `usuario.github.io` como bajo `usuario.github.io/repositorio/`. No requiere claves API, cuenta de IA ni servicios de pago para calcular.
 
-**Almacenamiento en GitHub Pages:** al abrir la aplicación, pulsa **Activar guardado local**. Los resultados se conservan en ese navegador entre sesiones. No se sincronizan con otros dispositivos ni se guardan en el repositorio. Utiliza **Modelo y datos → Exportar temporada** para hacer copias y **Importar copia** para trasladarlas. Borrar los datos del navegador elimina esa copia local. No es un modo multiusuario.
+**Almacenamiento en GitHub Pages:** los resultados se guardan en una hoja de Google mediante el script incluido en `google-apps-script/Code.gs`. La URL de conexión puede compartirse entre dispositivos y un PIN protege las escrituras. Sigue la guía completa [GUIA-GOOGLE-SHEETS.md](./GUIA-GOOGLE-SHEETS.md). Los datos no se guardan en el repositorio.
 
 Documentación oficial: https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages
 
-## Versión online con base de datos
+## Otra versión online con base de datos
 
-La versión de Sites incluida en el proyecto guarda el estado en Cloudflare D1 mediante `/api/state`. Se publica con acceso privado y controles de revisión para evitar que dos sesiones sobrescriban cambios sin detectar el conflicto. No conecta la edición GitHub Pages con la base de datos automáticamente.
+La versión de Sites incluida en el proyecto guarda el estado en Cloudflare D1 mediante `/api/state`. La compilación de GitHub Pages utiliza Google Sheets. Son almacenamientos independientes.
 
 Si falla un guardado, los cambios permanecen en pantalla, se indica que no están guardados y se permite reintentar o exportarlos. No cierres la página sin exportar si el error continúa. Los borradores de marcador requieren pulsar **Guardar** en cada partido.
 
@@ -63,8 +64,8 @@ La dificultad se expresa como puntos esperados del partido: menos de 0,8, alta; 
 
 ## Copias y cambios de calendario
 
-La exportación JSON contiene `version`, `season`, `teams`, `matches`, `settings` y `updatedAt`. Puede editarse para corregir emparejamientos y volver a importarse: se exigen 16 equipos, 30 jornadas, ocho partidos por jornada y una visita por cada pareja ordenada. No se admiten marcadores parciales, negativos, decimales ni mayores de 50. La importación sustituye la temporada después de una confirmación.
+La exportación JSON contiene `version`, `season`, `teams`, `matches`, `settings` y `updatedAt`. Puede editarse para corregir emparejamientos y volver a importarse: se exigen 16 equipos, 30 jornadas, ocho partidos por jornada y una visita por cada pareja ordenada. No se admiten marcadores parciales, negativos, decimales ni mayores de 50. La importación sustituye la temporada después de una confirmación y, en GitHub Pages, la guarda en Google Sheets.
 
 ## Validación realizada
 
-Pruebas de clasificación inicial, edición/corrección/borrado de resultados, integridad del calendario, importación, simulaciones reproducibles y cierre de temporada; pruebas de persistencia SQL, recuperación, conflicto de revisión y validación de API. Comprobación de TypeScript y compilación de ambas ediciones. No se ha realizado una prueba visual en navegador.
+Pruebas de clasificación inicial, edición/corrección/borrado de resultados, integridad del calendario, importación, simulaciones reproducibles y cierre de temporada; pruebas de persistencia SQL, recuperación, conflicto de revisión y validación de API. Comprobación de TypeScript y compilación de ambas ediciones. La conexión real con Apps Script requiere completar la configuración en una cuenta de Google.
