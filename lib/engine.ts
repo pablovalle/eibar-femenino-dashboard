@@ -1,0 +1,37 @@
+import fixtures from './fixtures.json';
+export type Match={id:string;round:number;home:number;away:number;hg:number|null;ag:number|null;note:string};
+export type Team={id:number;name:string;short:string;prev:number|null;older:number|null;promoted:boolean;color:string};
+export type State={version:1;season:string;teams:Team[];matches:Match[];settings:{target:number;home:number;draw:number;learning:number;uncertainty:number;weight:number};updatedAt:string};
+const names=['FC Barcelona','Real Madrid','Real Sociedad','Tenerife','Atlético de Madrid','Granada','Athletic Club','Sevilla','Madrid CFF','Badalona Women','Espanyol','Deportivo Abanca','SD Eibar','Logroño United','Alavés','Valencia'];
+const short=['FCB','RMA','RSO','TEN','ATM','GRA','ATH','SEV','MAD','BAD','ESP','DEP','EIB','LOG','ALA','VAL'];
+const colors=['#8d2352','#7283aa','#087cbc','#21568a','#c32f45','#c93942','#c23044','#bf354c','#ce7194','#294ba0','#3286b5','#327bac','#941d48','#92313c','#3965a7','#c8721c'];
+const prev=[87,72,66,54,51,45,44,41,37,39,31,31,28,21,null,null];
+const older=[84,76,41,42,58,45,51,36,33,28,32,27,38,null,null,23];
+export function fresh():State{return {version:1,season:'2026/27',teams:names.map((name,id)=>({id,name,short:short[id],prev:prev[id],older:older[id],promoted:id>=14,color:colors[id]})),matches:structuredClone(fixtures),settings:{target:31,home:.25,draw:.9,learning:.15,uncertainty:.35,weight:.7},updatedAt:''}}
+export const done=(m:Match)=>m.hg!==null&&m.ag!==null;
+export function validate(s:State){
+ if(!s||s.version!==1||typeof s.season!=='string'||s.season.length>40||!Array.isArray(s.teams)||s.teams.length!==16||!Array.isArray(s.matches)||s.matches.length!==240)throw Error('Se necesitan 16 equipos y 240 partidos en una temporada compatible.');
+ s.teams.forEach((t,i)=>{if(t.id!==i||typeof t.name!=='string'||!t.name.trim()||t.name.length>60||typeof t.short!=='string'||t.short.length>6||!/^#[0-9a-fA-F]{6}$/.test(t.color)||typeof t.promoted!=='boolean'||[t.prev,t.older].some(p=>p!==null&&(!Number.isFinite(p)||p<0||p>90)))throw Error('Histórico o equipo no válido.');});
+ const ids=new Set(),pairs=new Set();const rounds=Array.from({length:30},()=>new Set<number>());
+ for(const m of s.matches){if(typeof m.id!=='string'||m.id.length>60||ids.has(m.id)||!Number.isInteger(m.round)||m.round<1||m.round>30||![m.home,m.away].every(t=>Number.isInteger(t)&&t>=0&&t<16)||m.home===m.away||typeof m.note!=='string'||m.note.length>1000)throw Error('Partido no válido.');
+ if((m.hg===null)!==(m.ag===null)||[m.hg,m.ag].some(g=>g!==null&&(!Number.isInteger(g)||g<0||g>50)))throw Error('Introduce los dos goles (enteros entre 0 y 50), o deja ambos vacíos.');
+ const key=`${m.home}-${m.away}`;if(pairs.has(key)||rounds[m.round-1].has(m.home)||rounds[m.round-1].has(m.away))throw Error('Hay equipos repetidos en una jornada o un enfrentamiento duplicado.');ids.add(m.id);pairs.add(key);rounds[m.round-1].add(m.home);rounds[m.round-1].add(m.away);}
+ if(rounds.some(r=>r.size!==16))throw Error('Cada jornada debe contener ocho partidos.');
+ const ranges={target:[1,90],home:[0,1],draw:[.1,2],learning:[0,.5],uncertainty:[0,1],weight:[0,1]};for(const [k,[lo,hi]]of Object.entries(ranges)){const v=s.settings?.[k as keyof State['settings']];if(!Number.isFinite(v)||v<lo||v>hi)throw Error('Parámetros fuera de rango.');}if(!Number.isInteger(s.settings.target))throw Error('La meta debe ser un número entero.');
+ return s;
+}
+export function chances(diff:number,nu:number){const a=Math.exp(diff/2),b=1/a,z=a+b+nu;return [a/z,nu/z,b/z]}
+function fit(target:number[],nu:number){let r=target.map(p=>(p-42)/20);for(let k=0;k<800;k++){const p=Array(16).fill(0);for(let i=0;i<16;i++)for(let j=0;j<16;j++)if(i!==j){const[w,d,l]=chances(r[i]-r[j]+.25,nu);p[i]+=3*w+d;p[j]+=3*l+d;}for(let i=0;i<16;i++)r[i]+=.015*(target[i]-p[i]);const mean=r.reduce((a,b)=>a+b,0)/16;r=r.map(x=>x-mean);}return r;}
+export function initialRatings(s:State){const target=s.teams.map(t=>t.prev??14);target[15]=s.teams[15].prev??9;const r=fit(target,s.settings.draw);const old=s.teams.map(t=>t.older??23);old[14]=s.teams[14].older??31;const rOld=fit(old,s.settings.draw);return s.teams.map((t,i)=>t.promoted&&t.prev===null?(r[12]+r[13])/2:t.prev!==null&&t.older!==null?s.settings.weight*r[i]+(1-s.settings.weight)*rOld[i]:r[i]);}
+export function ratings(s:State){const r=initialRatings(s);const events=s.matches.filter(done).sort((a,b)=>a.round-b.round||a.id.localeCompare(b.id));const perf:Record<string,number>={};for(const m of events){const[w,d]=chances(r[m.home]-r[m.away]+s.settings.home,s.settings.draw);perf[m.id]=3*w+d;const y=m.hg!>m.ag!?1:m.hg===m.ag?.5:0;const shift=s.settings.learning*(y-w-.5*d);r[m.home]+=shift;r[m.away]-=shift;}return {r,perf};}
+export function table(s:State,until=30){const rows=s.teams.map(t=>({...t,p:0,pj:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,form:[] as string[],homeP:0,awayP:0,homeN:0,awayN:0}));
+ for(const m of s.matches.filter(m=>done(m)&&m.round<=until).sort((a,b)=>a.round-b.round)){const a=rows[m.home],b=rows[m.away],hp=m.hg!>m.ag!?3:m.hg===m.ag?1:0,ap=hp===3?0:hp===1?1:3;for(const[t,gf,ga,p,isHome] of [[a,m.hg!,m.ag!,hp,true],[b,m.ag!,m.hg!,ap,false]] as const){t.pj++;t.p+=p;t.gf+=gf;t.ga+=ga;t.gd=t.gf-t.ga;t.w+=p===3?1:0;t.d+=p===1?1:0;t.l+=p===0?1:0;t.form.push(p===3?'V':p===1?'E':'D');if(isHome){t.homeP+=p;t.homeN++;}else{t.awayP+=p;t.awayN++;}}}
+ return rows.sort((a,b)=>b.p-a.p||b.gd-a.gd||b.gf-a.gf||a.id-b.id);
+}
+export function expected(m:Match,r:number[],s:State,team=12){const p=chances(r[m.home]-r[m.away]+s.settings.home,s.settings.draw);if(m.away===team)return [p[2],p[1],p[0]];return p;}
+export function simulate(s:State,n=6000){const{r}=ratings(s),rows=table(s),points=s.teams.map(t=>rows.find(x=>x.id===t.id)!.p),remaining=s.matches.filter(m=>!done(m));let seed=297441;const rand=()=>{seed=(1664525*seed+1013904223)>>>0;return(seed+.5)/4294967296};const normal=()=>Math.sqrt(-2*Math.log(rand()))*Math.cos(2*Math.PI*rand());let strict=0,possible=0,over=0,joint=0,total=0;const hist=Array(91).fill(0),below=Array(16).fill(0),pSum=Array(16).fill(0),ranks=Array(16).fill(0);const next=remaining.filter(m=>m.home===12||m.away===12).sort((a,b)=>a.round-b.round)[0];const scenarios=[{count:0,success:0},{count:0,success:0},{count:0,success:0}];
+ for(let k=0;k<n;k++){const strength=r.map((v,i)=>v+normal()*s.settings.uncertainty*(s.teams[i].promoted?1.7:1)),p=points.slice();let nextResult=-1;for(const m of remaining){const[w,d]=chances(strength[m.home]-strength[m.away]+s.settings.home,s.settings.draw);const u=rand(),out=u<w?0:u<w+d?1:2;if(out===0)p[m.home]+=3;else if(out===1){p[m.home]++;p[m.away]++;}else p[m.away]+=3;if(m.id===next?.id)nextResult=m.home===12?out:2-out;}
+ let less=0,le=0;for(let i=0;i<16;i++){pSum[i]+=p[i];if(i!==12){if(p[i]<p[12]){less++;below[i]++;}if(p[i]<=p[12])le++;}}
+ const safe=less>=2,goal=p[12]>=s.settings.target;strict+=safe?1:0;possible+=le>=2?1:0;over+=goal?1:0;joint+=safe&&goal?1:0;total+=p[12];hist[p[12]]++;ranks[p.filter(v=>v>p[12]).length]++;if(nextResult>=0){scenarios[nextResult].count++;scenarios[nextResult].success+=safe&&goal?1:0;}}
+ const quantile=(q:number)=>{let c=0;for(let i=0;i<hist.length;i++){c+=hist[i];if(c>=n*q)return i;}return 90;};return{strict:strict/n,possible:possible/n,over:over/n,joint:joint/n,mean:total/n,lo:quantile(.1),hi:quantile(.9),hist,below:below.map(x=>x/n),points:pSum.map(x=>x/n),ranks,n,scenarios:scenarios.map(x=>x.count?x.success/x.count:null)};
+}
