@@ -21,7 +21,7 @@ Aplicación en español para registrar los resultados de los 240 partidos de Lig
 
 La aplicación utiliza rutas relativas: funciona tanto en `usuario.github.io` como bajo `usuario.github.io/repositorio/`. No requiere claves API, cuenta de IA ni servicios de pago para calcular.
 
-**Almacenamiento en GitHub Pages:** los resultados se guardan en una hoja de Google mediante el script incluido en `google-apps-script/Code.gs`. La URL de conexión puede compartirse entre dispositivos y un PIN protege las escrituras. Sigue la guía completa [GUIA-GOOGLE-SHEETS.md](./GUIA-GOOGLE-SHEETS.md). Los datos no se guardan en el repositorio.
+**Almacenamiento en GitHub Pages:** los resultados se guardan en una hoja de Google mediante el script incluido en `google-apps-script/Code.gs`. La copia preparada para este proyecto ya incluye la URL de la implementación; una URL de conexión puede compartirse entre dispositivos y un PIN protege las escrituras. Sigue la guía completa [GUIA-GOOGLE-SHEETS.md](./GUIA-GOOGLE-SHEETS.md). Los datos no se guardan en el repositorio.
 
 Documentación oficial: https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages
 
