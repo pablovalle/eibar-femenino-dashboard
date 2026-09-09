@@ -72,7 +72,7 @@ export function readEditorPin() {
 
 export function rememberEditorPin(pin: string) {
   const clean = pin.trim();
-  if (clean.length < 8) throw new Error("El PIN debe tener al menos 8 caracteres.");
+  if (clean.length < 4) throw new Error("El PIN debe tener al menos 4 caracteres.");
   sessionStorage.setItem(PIN_KEY, clean);
   return clean;
 }
